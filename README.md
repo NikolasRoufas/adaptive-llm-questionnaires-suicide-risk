@@ -2,16 +2,16 @@
 
 ### A Clinical Pilot in Greece
 
-[![Conference](https://img.shields.io/badge/NICE%20TEAS%20Europe-2026-0B3D91)](docs/PAPER.md)
+[![Conference](https://img.shields.io/badge/NICE%20TEAS%20Europe-2026-0B3D91)](https://doi.org/10.17605/osf.io/vcjrm)
 [![OSF](https://img.shields.io/badge/OSF-10.17605%2Fosf.io%2Fvcjrm-2E7D32)](https://doi.org/10.17605/osf.io/vcjrm)
 [![Ethics](https://img.shields.io/badge/Ethics-KL--2025--07%2FETH-6A1B9A)](#ethics--safety)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.x-3776AB)](#repository-layout)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)](#repository-layout)
 
 > **Companion code** for the NICE TEAS Europe 2026 paper.  
 > Clinician-supervised, LLM-assisted generation and weekly adaptation of personalized suicide-risk questionnaires — supporting clinical judgment, not replacing it.
 
-**Paper PDF / publisher DOI:** _link forthcoming_ (see [`docs/PAPER.md`](docs/PAPER.md)) · **OSF registration:** [doi:10.17605/osf.io/vcjrm](https://doi.org/10.17605/osf.io/vcjrm)
+**Paper PDF / publisher DOI:** _link forthcoming_ · **OSF registration:** [doi:10.17605/osf.io/vcjrm](https://doi.org/10.17605/osf.io/vcjrm)
 
 ---
 
@@ -84,32 +84,29 @@ Per category, the **two lowest**-weight items are candidates for replacement und
 | Clinician HITL in Sheets | Automated clinical approval API |
 | Weight-driven adaptive questionnaire | Fixed static PHQ-9 / C-SSRS form |
 
-Details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Ethics: [`docs/ETHICS.md`](docs/ETHICS.md) · Paper: [`docs/PAPER.md`](docs/PAPER.md)
-
 ---
 
 ## Repository layout
 
 ```text
-README.md                 # Start here
-LICENSE                   # MIT (code)
-NOTICE                    # Ethics / what is not redistributed
-CITATION.cff              # Machine-readable citation
+README.md                 # This file
+LICENSE / NOTICE          # MIT + clinical constraints
+CITATION.cff
+pyproject.toml            # Installable package metadata
 requirements.txt
-run.sh
-main.py                   # Pipeline controller
+main.py                   # Thin CLI entry point
 config/
-  config.example.ini      # Copy → config.ini (gitignored)
-lib/
-  framework/markI.py      # Config + logging
-  modules/                # Google Sheets, OpenAI, Dropbox
-docs/
-  PAPER.md                # Paper metadata + future DOI
-  ARCHITECTURE.md
-  ETHICS.md
-  paper/                  # Local camera-ready PDF (private use)
-data/README.md            # Export folder (CSV/JSON gitignored)
+  config.example.ini      # Copy → config.ini (local only)
+scripts/
+  run.sh                  # Run all pipeline stages
+src/adaptive_questionnaires/
+  pipeline.py             # Controllers for task0 / task1 / analyze / plot
+  core/mark_i.py          # Config + logging singleton
+  clients/                # Google Sheets, OpenAI, Dropbox
+outputs/                  # Local figures (gitignored contents)
 ```
+
+Package layout follows the standard Python `src/` pattern (one package — not a mix of `lib/` and `src/`).
 
 ---
 
@@ -119,6 +116,7 @@ data/README.md            # Export folder (CSV/JSON gitignored)
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+# optional: pip install -e .
 cp config/config.example.ini config/config.ini
 # Fill OpenAI key, Google OAuth path, spreadsheet IDs
 ```
@@ -126,13 +124,15 @@ cp config/config.example.ini config/config.ini
 Place Sheets OAuth JSON under `config/secrets/`, then:
 
 ```bash
-python3 main.py -o task0
-python3 main.py -o task1_preparation
-python3 main.py -o task1
-python3 main.py -o task1_analyze_results
-python3 main.py -o task1_visualize_results
-# or: bash run.sh
+python main.py -o task0
+python main.py -o task1_preparation
+python main.py -o task1
+python main.py -o task1_analyze_results
+python main.py -o task1_visualize_results
 ```
+
+Or: `bash scripts/run.sh`  
+Or: `python -m adaptive_questionnaires -o task1` (after `pip install -e .`)
 
 ---
 
@@ -141,7 +141,7 @@ python3 main.py -o task1_visualize_results
 - **Protocol:** KL-2025-07/ETH (KLIMAKA Scientific Committee, July 2025; Declaration of Helsinki).
 - **Clinical role:** Decision-support for licensed clinicians only; mandatory therapist validation before delivery.
 - **Crisis (Greece):** **1018** (KLIMAKA). Elsewhere: local emergency / IASP resources.
-- **Data:** Clinical exports and secrets are **not** published (see [`.gitignore`](.gitignore) and [`NOTICE`](NOTICE)).
+- **Data:** Clinical exports and secrets are local-only (see [`.gitignore`](.gitignore) and [`NOTICE`](NOTICE)).
 
 ---
 

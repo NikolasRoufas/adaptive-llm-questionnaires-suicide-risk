@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adaptive-questionnaires"
+version = "1.0.0"
+description = "Companion code for NICE TEAS Europe 2026: adaptive LLM questionnaires for suicide risk assessment"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+  { name = "Dimitrios Georgiou", email = "dgeorgiou@ionio.gr" },
+  { name = "Akis Makrigiannis" },
+  { name = "Vassilis C. Gerogiannis" },
+  { name = "Andreas Kanavos", email = "akanavos@ionio.gr" },
+]
+keywords = [
+  "large-language-models",
+  "adaptive-questionnaires",
+  "suicide-prevention",
+  "clinical-nlp",
+  "human-in-the-loop",
+]
+dependencies = [
+  "numpy",
+  "pandas",
+  "tqdm",
+  "matplotlib",
+  "seaborn",
+  "PyYAML",
+  "dataset==1.1.2",
+  "requests",
+  "retry",
+  "google-api-python-client",
+  "google-auth-httplib2",
+  "google-auth-oauthlib==0.4.1",
+  "oauth2client",
+  "openai",
+  "tiktoken",
+  "dropbox",
+]
+
+[project.urls]
+Homepage = "https://github.com/dimigeorgiou/adaptive-llm-questionnaires-suicide-risk"
+OSF = "https://doi.org/10.17605/osf.io/vcjrm"
+Repository = "https://github.com/dimigeorgiou/adaptive-llm-questionnaires-suicide-risk"
+
+[project.scripts]
+adaptive-questionnaires = "adaptive_questionnaires.pipeline:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
