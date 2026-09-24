@@ -9,6 +9,7 @@ config/secrets/
 # --- documentation (keep local only; do not push) ---
 docs/
 *.md
+!README.md
 
 # --- runtime / caches ---
 __pycache__/
