@@ -1,0 +1,27 @@
+# Companion code — Adaptive LLM Questionnaires (NICE TEAS Europe 2026)
+
+## Core
+numpy
+pandas
+tqdm
+matplotlib
+seaborn
+
+## Config / framework
+PyYAML
+dataset==1.1.2
+requests
+retry
+
+## Google Sheets
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib==0.4.1
+oauth2client
+
+## OpenAI
+openai
+tiktoken
+
+## Optional — OAuth token sync
+dropbox

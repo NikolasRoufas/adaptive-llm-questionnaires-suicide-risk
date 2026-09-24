@@ -1,0 +1,46 @@
+# --- secrets & local config ---
+config/config.ini
+config/secrets/
+*.pickle
+*.pem
+.env
+.env.*
+
+# --- documentation (keep local only; do not push) ---
+docs/
+*.md
+
+# --- runtime / caches ---
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+.env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+logs/
+*.log
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+.cursorrules
+
+# --- clinical / sensitive local artifacts (do not publish) ---
+data/
+visualizations/
+results/
+tmp/
+
+# --- local-only legacy (Streamlit / polls-analyzer) ---
+legacy/
+
+# --- optional large media ---
+*.mov
+*.mp4

@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+title: "Adaptive LLM-Generated Questionnaires for Suicide Risk Assessment: A Clinical Pilot in Greece"
+message: "If you use this software or method, please cite the NICE TEAS Europe 2026 paper (and this repository)."
+type: software
+authors:
+  - family-names: Georgiou
+    given-names: Dimitrios
+    email: dgeorgiou@ionio.gr
+    affiliation: "Department of Informatics, Ionian University"
+  - family-names: Makrigiannis
+    given-names: Akis
+    affiliation: "Klimaka NGO, Athens"
+  - family-names: Gerogiannis
+    given-names: "Vassilis C."
+    affiliation: "Department of Digital Systems, University of Thessaly"
+  - family-names: Kanavos
+    given-names: Andreas
+    email: akanavos@ionio.gr
+    affiliation: "Department of Informatics, Ionian University"
+identifiers:
+  - type: doi
+    value: 10.17605/osf.io/vcjrm
+    description: OSF study registration
+repository-code: "https://github.com/dimigeorgiou/adaptive-llm-questionnaires-suicide-risk"
+url: "https://doi.org/10.17605/osf.io/vcjrm"
+abstract: >-
+  Early-stage clinical pilot of an adaptive system that leverages LLMs to
+  generate personalized questionnaires for suicide risk assessment under
+  continuous clinician supervision (KLIMAKA, Athens, Greece). Combines
+  LLM-driven generation, fuzzy-logic adaptation, and patient history.
+keywords:
+  - large-language-models
+  - adaptive-questionnaires
+  - suicide-prevention
+  - clinical-pilot
+  - fuzzy-logic
+  - mental-health-informatics
+  - human-in-the-loop
+  - klimaka
+license: MIT
+version: "1.0.0"
+date-released: "2026-01-01"

@@ -1,0 +1,24 @@
+# NOTICE
+
+This repository is **companion source code** for the NICE TEAS Europe 2026 paper:
+
+> Adaptive LLM-Generated Questionnaires for Suicide Risk Assessment: A Clinical Pilot in Greece
+
+## What is licensed
+
+- Python pipeline code under `main.py`, `lib/`, `run.sh`, and related docs are released under the **MIT License** (see `LICENSE`).
+
+## What is not included / not licensed for redistribution
+
+- Clinical Google Sheets content, patient histories, session notes, and Likert responses
+- Local `data/` and `visualizations/` exports (gitignored)
+- OAuth secrets and `config/config.ini`
+- Any personally identifiable information (PII)
+
+## Clinical / ethics constraints
+
+- Ethics protocol: **KL-2025-07/ETH** (Scientific Committee of KLIMAKA, July 2025)
+- LLM outputs are for **clinician-supervised** questionnaire generation only — not diagnosis or automated risk scoring
+- Crisis (Greece): **1018** (KLIMAKA)
+
+See `docs/ETHICS.md`.
