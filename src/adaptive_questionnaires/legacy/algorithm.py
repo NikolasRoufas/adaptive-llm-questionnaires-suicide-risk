@@ -67,6 +67,10 @@ def replace_lowest_scoring_questions(
     dropped rows, the category is left unchanged (upstream behaviour).
     """
     likert_cols = list(likert_cols)
+    # Values re-read from Sheets are strings; pandas>=3's strict string dtype rejects the
+    # float resets below. advance_meeting() zeroes every score afterwards, so coercing
+    # here does not change any written value.
+    df[likert_cols] = df[likert_cols].apply(pd.to_numeric, errors="coerce")
     df["To_Drop"] = mark_lowest_for_replacement(df, n_per_category)
     for cat in df["category"].unique():
         drop_idx = df[(df["category"] == cat) & (df["To_Drop"])].index
@@ -148,3 +152,51 @@ def initial_block_rows(parsed: List[Dict]) -> pd.DataFrame:
         **{col: 0.0 for col in LIKERT_COLS},
     } for item in parsed]
     return pd.DataFrame(data).fillna("")
+
+
+def validate_scored_block(df: pd.DataFrame, likert_cols: Iterable[str] = LIKERT_COLS,
+                          scale=(1.0, 5.0), sentinel: float = 0.0) -> List[str]:
+    """Integrity checks before the legacy weight update (audit issues E, K).
+
+    Upstream treats the ``0.0`` "not scored" sentinel as a real score and crashes on
+    blank cells. Returns human-readable problems (empty list = OK). Question text is
+    never included, only category/slot identifiers.
+    """
+    likert_cols = list(likert_cols)
+    problems: List[str] = []
+    raw = df[likert_cols]
+    num = raw.apply(pd.to_numeric, errors="coerce")
+    blank = num.isna()
+    lo, hi = scale
+    for idx in df.index:
+        slot = f"category={df.at[idx, 'category']} q={df.at[idx, 'q']}"
+        if blank.loc[idx].any():
+            dims = [c for c in likert_cols if blank.at[idx, c]]
+            problems.append(f"{slot}: blank/non-numeric score(s) in {dims}")
+            continue
+        vals = num.loc[idx]
+        unscored = vals == sentinel
+        if unscored.all():
+            problems.append(f"{slot}: not scored at all (would be averaged as 0)")
+        elif unscored.any():
+            dims = [c for c in likert_cols if unscored[c]]
+            problems.append(f"{slot}: partially scored; unscored {dims} would be averaged as 0")
+        bad = vals[(~unscored) & ((vals < lo) | (vals > hi))]
+        if len(bad):
+            problems.append(f"{slot}: score(s) outside {lo:g}-{hi:g}: {bad.to_dict()}")
+    return problems
+
+
+def output_tab_data_start_row(range_name: str) -> int:
+    """Sheet row (1-based) of the first *data* row for an output-tab range.
+
+    ``output`` or ``output!A1:...`` → header on row 1, data from row 2.
+    ``output!A2:...`` → header on row 2, data from row 3 (the upstream hard-coded
+    ``row_idx + 3`` assumption, audit issue F).
+    """
+    import re
+
+    _, _, rng = str(range_name).partition("!")
+    m = re.match(r"\$?[A-Za-z]+\$?(\d+)", rng) if rng else None
+    header_row = int(m.group(1)) if m else 1
+    return header_row + 1
