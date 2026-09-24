@@ -22,7 +22,6 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from functools import lru_cache
 from itertools import combinations
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -80,17 +79,38 @@ def _cosine(a: Counter, b: Counter) -> float:
 class LexicalSimilarity(Similarity):
     name = "lexical"
 
-    @lru_cache(maxsize=65536)
+    def __init__(self):
+        self._feats: Dict[str, tuple] = {}
+        self._pairs: Dict[Tuple[str, str], float] = {}
+
     def _feat(self, text: str):
-        return frozenset(_tokens(text)), _char_ngrams(text)
+        f = self._feats.get(text)
+        if f is None:
+            grams = _char_ngrams(text)
+            norm = math.sqrt(sum(v * v for v in grams.values()))
+            f = (normalize_text(text), frozenset(_tokens(text)), grams, norm)
+            self._feats[text] = f
+        return f
 
     def sim(self, a: str, b: str) -> float:
-        if normalize_text(a) == normalize_text(b):
-            return 1.0
-        ta, ca = self._feat(a)
-        tb, cb = self._feat(b)
-        jac = len(ta & tb) / len(ta | tb) if (ta or tb) else 0.0
-        return max(0.0, min(1.0, max(jac, _cosine(ca, cb))))
+        key = (a, b) if a <= b else (b, a)
+        cached = self._pairs.get(key)
+        if cached is not None:
+            return cached
+        na_text, ta, ca, na = self._feat(a)
+        nb_text, tb, cb, nb = self._feat(b)
+        if na_text == nb_text:
+            v = 1.0
+        else:
+            jac = len(ta & tb) / len(ta | tb) if (ta or tb) else 0.0
+            if na == 0 or nb == 0:
+                cos = 0.0
+            else:
+                small, big = (ca, cb) if len(ca) <= len(cb) else (cb, ca)
+                cos = sum(val * big.get(k, 0) for k, val in small.items()) / (na * nb)
+            v = max(0.0, min(1.0, max(jac, cos)))
+        self._pairs[key] = v
+        return v
 
 
 class _EmbeddingSimilarity(Similarity):
@@ -112,15 +132,20 @@ class _EmbeddingSimilarity(Similarity):
                 self._cache[t] = v
 
     def sim(self, a: str, b: str) -> float:
+        key = (a, b) if a <= b else (b, a)
+        pairs = self.__dict__.setdefault("_pairs", {})
+        if key in pairs:
+            return pairs[key]
         if normalize_text(a) == normalize_text(b):
-            return 1.0
-        va, vb = self._vec(a), self._vec(b)
-        dot = sum(x * y for x, y in zip(va, vb))
-        na = math.sqrt(sum(x * x for x in va))
-        nb = math.sqrt(sum(y * y for y in vb))
-        if na == 0 or nb == 0:
-            return 0.0
-        return max(0.0, min(1.0, dot / (na * nb)))  # negative cosine -> 0 (unrelated)
+            v = 1.0
+        else:
+            va, vb = self._vec(a), self._vec(b)
+            dot = sum(x * y for x, y in zip(va, vb))
+            na = math.sqrt(sum(x * x for x in va))
+            nb = math.sqrt(sum(y * y for y in vb))
+            v = 0.0 if na == 0 or nb == 0 else max(0.0, min(1.0, dot / (na * nb)))  # negative cosine -> 0
+        pairs[key] = v
+        return v
 
 
 class SentenceTransformerSimilarity(_EmbeddingSimilarity):

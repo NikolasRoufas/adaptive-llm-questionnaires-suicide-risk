@@ -144,6 +144,7 @@ class EngineOptions:
     disabled_components: Sequence[str] = ()       # ablations (see ranker.COMPONENTS)
     use_redundancy_filter: bool = True
     deterministic_ids: bool = False               # experiments: ids derived from content
+    random_control: bool = False                  # evaluation control: no ranking signal, hashed order
 
 
 class AdaptiveSessionEngine:
@@ -156,7 +157,12 @@ class AdaptiveSessionEngine:
         self.store = store
         self.instrument = instrument or NoInstrumentAdapter()
         self.options = options or EngineOptions()
-        self.ranker = ExpectedUtilityProxy(RankerWeights.from_config(cfg, self.options.disabled_components))
+        disabled = set(self.options.disabled_components)
+        if self.options.random_control:
+            from adaptive_questionnaires.v2.ranker import COMPONENTS
+            disabled |= set(COMPONENTS)
+            self.cfg = self.cfg.with_overrides(replacement_margin=0.0)
+        self.ranker = ExpectedUtilityProxy(RankerWeights.from_config(self.cfg, disabled))
 
     # -- helpers ---------------------------------------------------------------
     def _scorer(self, state) -> ClinicianHistoryScorer:
@@ -269,7 +275,8 @@ class AdaptiveSessionEngine:
         rctx = RankingContext(self.sim, coverage, lstates, scorer, history_texts,
                               cfg.carryover_novelty, cfg.new_question_prior)
         outcome = select(pool, locked, rctx, self.ranker, cfg, history_texts,
-                         use_redundancy_filter=self.options.use_redundancy_filter)
+                         use_redundancy_filter=self.options.use_redundancy_filter,
+                         tie_break="hash" if self.options.random_control else "carryover_first")
 
         # materialise: new questions get NEW ids; no history is inherited
         now = utcnow_iso()

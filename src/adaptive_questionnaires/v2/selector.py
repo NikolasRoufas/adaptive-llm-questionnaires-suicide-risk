@@ -40,7 +40,8 @@ class SelectionOutcome:
 
 def select(pool: Sequence[CandidateQuestion], locked: Sequence[CandidateQuestion], ctx: RankingContext,
            ranker: ExpectedUtilityProxy, cfg: V2Config, recent_history_texts: Sequence[str],
-           use_redundancy_filter: bool = True, max_new: Optional[int] = None) -> SelectionOutcome:
+           use_redundancy_filter: bool = True, max_new: Optional[int] = None,
+           tie_break: str = "carryover_first") -> SelectionOutcome:
     """``max_new`` caps new questions (default: ``max_replacements_per_session`` when any
     carried-over question exists, otherwise uncapped, e.g. for a first session)."""
     sim = ctx.similarity
@@ -94,7 +95,11 @@ def select(pool: Sequence[CandidateQuestion], locked: Sequence[CandidateQuestion
             if not c.is_carryover:
                 u -= cfg.replacement_margin
             c.selection_metadata["effective_utility"] = u
-            key = (u, 1 if c.is_carryover else 0, c.candidate_id)
+            if tie_break == "hash":   # evaluation control: order independent of carry-over status
+                import hashlib
+                key = (u, 0, hashlib.sha256(c.candidate_id.encode()).hexdigest())
+            else:
+                key = (u, 1 if c.is_carryover else 0, c.candidate_id)
             if best is None or key > best[:3]:
                 best = (u, key[1], c.candidate_id, c)
         if best is None:
