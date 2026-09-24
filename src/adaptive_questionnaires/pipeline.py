@@ -714,6 +714,12 @@ class Controller():
         # Optional OAuth refresh via Dropbox (off by default):
         # self._refresh_tokens()
 
+        v2_runners = {"v2_select": "v2_select", "v2_import_feedback": "v2_import_feedback"}
+        if operation in v2_runners:
+            # V2 (experimental) runs on local state and never initialises Google Sheets.
+            from adaptive_questionnaires.v2 import cli as v2_cli
+            return getattr(v2_cli, v2_runners[operation])(self.mk1, self.args)
+
         runners = {
             "task0": self.run_task0,
             "task1_preparation": self.run_task1_preparation,
@@ -724,7 +730,7 @@ class Controller():
         if operation not in runners:
             raise ValueError(
                 f"Unknown operation={operation!r}. "
-                f"Choose one of: {', '.join(runners)}"
+                f"Choose one of: {', '.join(list(runners) + list(v2_runners))}"
             )
         self.run_initialization()
         runners[operation]()
