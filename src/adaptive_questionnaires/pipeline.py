@@ -21,6 +21,8 @@ from adaptive_questionnaires.core.mark_i import MkI
 from adaptive_questionnaires.clients.google_api import GoogleAPI, GoogleSheetsAPI
 from adaptive_questionnaires.clients.openai_client import OpenaiAPI
 from adaptive_questionnaires.clients.dropbox_client import DropboxAPI
+from adaptive_questionnaires.legacy import algorithm as legacy
+from adaptive_questionnaires.legacy.parsing import parse_questionnaire_markdown
 
 
 class Controller():
@@ -176,10 +178,6 @@ class Controller():
         if task0_df.empty:
             raise ValueError("task0 is empty or missing")
 
-        # regex patterns
-        pattern_category = r"### Κατηγορία (\d+): (.+)"
-        pattern_question = r"(\d+)\.\s(.+)"
-
         # Loop over all rows (all patients)
         for row_idx, row in task0_df.iterrows():
             raw_text = row[1]  # second column = the big "Κατηγορία" text
@@ -195,39 +193,8 @@ class Controller():
                 print(f"ℹ️ Sheet '{sheet_name}' already exists, skipping creation")
                 continue
 
-            lines = raw_text.splitlines()
-            data = []
-            current_category = None
-            current_category_name = None
-
-            for line in lines:
-                cat_match = re.match(pattern_category, line.strip())
-                q_match   = re.match(pattern_question, line.strip())
-
-                if cat_match:
-                    current_category = int(cat_match.group(1))
-                    current_category_name = cat_match.group(2).strip()
-
-                elif q_match and current_category:
-                    q_number = int(q_match.group(1))
-                    question = q_match.group(2).strip()
-
-                    data.append({
-                        "meeting": 0,
-                        "category": current_category,
-                        "category_name": current_category_name,
-                        "question_text": question,
-                        "q": q_number,
-                        "w": 0.5,
-                        "w_new" : 0.0,
-                        "Coherence": 0.0,
-                        "Emotional Resonance": 0.0,
-                        "Perceived Helpfulness": 0.0,
-                        "Motivational Impact": 0.0,
-                        "Engagement": 0.0
-                    })
-
-            df = pd.DataFrame(data).fillna("")
+            report = parse_questionnaire_markdown(raw_text)
+            df = legacy.initial_block_rows(report.items)
 
             # Only create sheet if it doesn't exist (already checked above)
             self.google_sheets_api.ensure_sheet_exists(
@@ -398,11 +365,7 @@ class Controller():
             
         
             # Step 7: Update patient dataframe
-            likert_cols = ["Coherence", "Emotional Resonance", "Perceived Helpfulness", "Motivational Impact", "Engagement"]
-            patient_df["meeting"]   = current_meeting_idx + 1
-            patient_df[likert_cols] = 0.0
-            patient_df["w"]         = patient_df["w_new"]
-            patient_df["w_new"]     = 0.0
+            patient_df = legacy.advance_meeting(patient_df, current_meeting_idx)
 
         
             # Step 8: Update patient sheet with new questions
@@ -442,18 +405,7 @@ class Controller():
 
     def _get_last_populated_columns(self, df, num_cols=12):
         """Get the last 12 columns that contain data and return their starting position"""
-        # Find the rightmost column with data
-        last_col_with_data = 0
-        for col_idx in range(len(df.columns) - 1, -1, -1):
-            if not df.iloc[:, col_idx].isnull().all():
-                last_col_with_data = col_idx
-                break
-        
-        # Get the last num_cols columns from that point
-        start_col = max(0, last_col_with_data - num_cols + 1)
-        selected_df = df.iloc[:, start_col:last_col_with_data + 1]
-        
-        return selected_df, start_col
+        return legacy.get_last_populated_columns(df, num_cols=num_cols)
 
     def _update_patient_sheet_columns(self, df, spreadsheet_id, tab_name, start_col_idx):
         """Update only the specific columns in the patient sheet at their original position"""
@@ -478,32 +430,11 @@ class Controller():
 
     def _column_number_to_letter(self, col_num):
         """Convert column number to letter (1=A, 2=B, ..., 27=AA, etc.)"""
-        result = ""
-        while col_num > 0:
-            col_num -= 1
-            result = chr(col_num % 26 + ord('A')) + result
-            col_num //= 26
-        return result
+        return legacy.column_number_to_letter(col_num)
 
     def _calculate_composite_and_update_weights(self, df, likert_cols):
-        """Calculate composite scores and update w_new weights"""
-        # Convert likert columns to numeric
-        df['w'] = df['w'].apply(pd.to_numeric, errors='coerce')
-        df[likert_cols] = df[likert_cols].apply(pd.to_numeric, errors='coerce')
-        
-        # Calculate composite score (fi) for each row
-        df['composite_score'] = df[likert_cols].mean(axis=1)
-        
-        # Calculate w_new using the formula: wi' = wi + α(fi - μ)
-        # where α = 0.2 and μ = 4
-        alpha = 0.2
-        mu = 4
-        df['w_new'] = df['w'] + alpha * (df['composite_score'] - mu)
-
-        # Drop composite score
-        df = df.drop('composite_score', axis=1) 
-        
-        return df
+        """Calculate composite scores and update w_new weights (legacy rule, see legacy.algorithm)."""
+        return legacy.calculate_composite_and_update_weights(df, likert_cols)
 
     def _check_meeting_progression(self, row, current_meeting_idx):
         """Check current meeting number and if next meeting notes are available"""
@@ -521,37 +452,14 @@ class Controller():
         
 
     def _replace_lowest_scoring_questions(self, df, meeting_notes, prompt, system_role, user_role, requirements, examples):
-        tqdm.pandas()
-
-        """Replace 2 lowest scoring questions per category using OpenAI"""
-        # Mark questions to drop (2 lowest per category based on w_new)
-        df["To_Drop"] = False
-        for cat in df["category"].unique():
-            cat_mask = df["category"] == cat
-            cat_df = df[cat_mask]
-            
-            # Get 2 lowest scoring questions in this category
-            lowest_idx = cat_df.nsmallest(2, "w_new").index
-            df.loc[lowest_idx, "To_Drop"] = True
-        
-        # Replace questions using OpenAI
-        for cat in tqdm(df["category"].unique(), desc = "Loading ..."):
-            drop_idx = df[(df["category"] == cat) & (df["To_Drop"])].index
-            if drop_idx.empty:
-                continue
-            
-            # Get existing questions in this category
-            existing_questions = df[(df["category"] == cat) & (~df["To_Drop"])]["question_text"].tolist()
-            
-            # Get the text content from the specified column
-            variables  = {
+        """Replace 2 lowest scoring questions per category using OpenAI (legacy rule)."""
+        def generate(cat, existing_questions):
+            variables = {
                 "meeting_notes"      : meeting_notes,
                 "existing_questions" : existing_questions,
                 "category"           : cat
             }
-        
-            # Execute the custom prompt
-            new_questions = self.openai_api.execute_custom_prompt(
+            return self.openai_api.execute_custom_prompt(
                 prompt       = prompt,
                 variables    = variables,
                 system_role  = system_role,
@@ -559,42 +467,17 @@ class Controller():
                 requirements = requirements,
                 examples     = examples
             )
-            new_questions = [q for q in new_questions.split('\n') if q.strip()]
-                     
-            
-            if len(new_questions) != len(drop_idx):
-                print(f"⚠️ OpenAI returned {len(new_questions)} questions, expected {len(drop_idx)} for category {cat}")
-                continue
-            
-            # Replace the questions
-            for i, idx in enumerate(drop_idx):
-                df.at[idx, "question_text"]         = new_questions[i]
-                # Reset scores for new questions
-                df.at[idx, "w_new"]                 = 0.5  # Reset to default weight
-                df.at[idx, "Coherence"]             = 0.0
-                df.at[idx, "Emotional Resonance"]   = 0.0
-                df.at[idx, "Perceived Helpfulness"] = 0.0
-                df.at[idx, "Motivational Impact"]   = 0.0
-                df.at[idx, "Engagement"]            = 0.0
 
-        # Drop To_Drop
-        df = df.drop('To_Drop', axis=1) 
-        return df
+        def on_mismatch(cat, got, expected):
+            print(f"⚠️ OpenAI returned {got} questions, expected {expected} for category {cat}")
+
+        return legacy.replace_lowest_scoring_questions(df, generate, on_count_mismatch=on_mismatch)
 
 
     def _merge_categories(self, df):
         """Merge all categories and questions into Greek text format"""
-        merged_text = ""
-        for cat in sorted(df["category"].unique()):
-            cat_name = df[df['category'] == cat]['category_name'].iloc[0]
-            merged_text += f"### Κατηγορία {cat}: {cat_name}\n"
-            
-            cat_questions = df[df["category"] == cat].sort_values("q")
-            for _, row in cat_questions.iterrows():
-                merged_text += f"{row['q']}. {row['question_text']}\n"
-            merged_text += "\n"
-        
-        return merged_text.strip()
+        return legacy.merge_categories(df)
+
 
     def _find_column_index(self, df, column_name):
         """Find the index of a column by name"""

@@ -12,7 +12,7 @@ visualizations/
 results/
 logs/
 tmp/
-legacy/
+/legacy/
 outputs/*
 !outputs/.gitkeep
 
