@@ -334,6 +334,56 @@ Also:
 - The lexical change signal has low specificity.
 - The longitudinal component is marginal in ablation.
 
+### What got better and what got worse
+
+All of these results come from **synthetic** sessions (simulated patients, simulated LLM output and
+simulated clinician ratings). They describe how questions are *selected*. They say nothing about
+clinical accuracy, which was not evaluated.
+
+**What got better with V2:**
+
+- **Fewer duplicate questions in a session.** V1 had 37.7% of questions asking the same thing as
+  another question in the same questionnaire. V2 had 28.2%, a relative drop of about a quarter.
+- **Less repetition across sessions.** 55.1% of V1's new questions re-asked something from an
+  earlier session. V2 cut that to 43.0%.
+- **Better follow-up on change.** When a domain's situation changed (for example, sleep got worse),
+  V1 asked a clarifying follow-up question 62.8% of the time. V2 did so 84.4% of the time.
+- **More varied questions.** Semantic diversity rose from 0.679 to 0.727.
+- **New questions closer to the current session notes.** The relevance proxy rose from 0.301 to 0.346.
+- **Less churn.** V1 replaces a fixed share every session (39% of questions in this simulation).
+  V2 replaced 26%, keeping well-rated questions for longer.
+- **Fewer LLM calls.** 1 call per session instead of about 4.
+
+**What got worse with V2:**
+
+- **Less guaranteed coverage per domain.** V1 always asks exactly 4 questions in each of the 5
+  domains. V2's default minimum is 2, so its smallest domain averaged 3.76 questions instead of 4.
+  This is the reason the overall verdict is "mixed" rather than "improves". Whether 2 is an
+  acceptable minimum is a clinical decision. The minimum is configurable (see below).
+- **Slightly less even spread across domains.** Category entropy fell from 1.000 to 0.998, a very
+  small difference.
+- **More generated text and compute.** V2 asks the LLM for about 3× more candidate questions per
+  session (35 vs about 12), so token cost is likely higher, although tokens were not measured.
+  Local selection time rose from about 5 ms to about 13 ms per session.
+
+**No clear difference:**
+
+- **Question quality as judged by the simulated clinicians** (3.26 vs 3.21 on a 1–5 scale; the
+  confidence interval includes zero).
+- **Rate of invalid LLM output.**
+
+**Other results to keep in mind:**
+
+- **The optional embedding backend is not a free upgrade.** It cut duplicates much further (14%
+  instead of 28%) and cross-session repetition to 18%. However, it *lowered* simulated question
+  quality and domain coverage, because the current scoring weights were not tuned for it and it
+  kept too many old questions.
+- **Raising V2's minimum to 4 per domain removes the coverage regression.** With that setting, V2
+  was better on duplicates, repetition and follow-up and worse on nothing. This check was added
+  *after* seeing the results, so it is a hypothesis for a new evaluation, not a result.
+- **The default (lexical) change detector is over-sensitive.** It flagged 13 of 15 re-worded but
+  unchanged summaries as changes. Part of the follow-up gain may come from that.
+
 ## 8. Safety
 
 - Clinician-supervised decision support only. Every V2 output is a proposal
