@@ -172,6 +172,19 @@ Five Likert dimensions are entered per question per meeting in the patient tab: 
 - "Longitudinal analytics … for transparency": the exported weight trajectories are corrupted by positional alignment (B) after the first replacement.
 - The README's `pip install -r requirements.txt` quick start does not produce a working install today (Reproducibility 1–2, 6).
 
+## Addendum — issues found during implementation
+
+Found after the initial audit and reproduced against the unmodified upstream code (29752f3) before
+being fixed:
+
+| ID | Location | Finding | Status |
+|---|---|---|---|
+| **S** | `google_api.py` `result_to_df` | The Sheets API trims trailing empty cells per row. If **every** data row is shorter than the header (for example, an all-empty last column such as a not-yet-filled `meeting2_task1`), `pd.DataFrame(data, columns=headers)` raises `ValueError: 4 columns passed, passed data had 3 columns`. | CONFIRMED (executed, upstream `result_to_df`) |
+| **G2** | `pipeline.py` `_replace_lowest_scoring_questions` | Under pandas ≥ 3, columns re-read from Sheets use the strict string dtype. Writing `0.0` into a Likert cell of a replaced row raises `TypeError: Invalid value '0.0' for dtype 'str'`. A sibling of G. | CONFIRMED (executed: the legacy scenario fails on pandas 3.0.6 before the fix; parity passes on pandas 2.3.3) |
+
+Environment note: the golden parity fixture had to be generated under pandas 2.3.3, because the
+unmodified upstream `task1_preparation` cannot run under pandas 3 (issue G).
+
 ## Investigated but not confirmed
 
 - **Duplicate column names** in patient tabs (each 12-column block repeats the same headers): `result_to_df` keeps duplicate column names, and the pipeline always slices by position before selecting by name, so no defect was found.

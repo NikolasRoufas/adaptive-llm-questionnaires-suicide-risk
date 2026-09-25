@@ -2,7 +2,7 @@
 """Synthetic V1-vs-V2 evaluation of QUESTION-SELECTION proxies (not clinical accuracy).
 
     python experiments/evaluate_v1_vs_v2.py            # full run (30 patients × 6 sessions)
-    python experiments/evaluate_v1_vs_v2.py --quick    # smoke run
+    python experiments/evaluate_v1_vs_v2.py --quick    # smoke run -> outputs/evaluation/quick/
 
 Outputs go to outputs/evaluation/: per_session_metrics.csv, summary.json, comparison.csv,
 ablations.csv, run_manifest.json, results.md.
@@ -132,9 +132,15 @@ def main():
     ap.add_argument("--seed", type=int, default=20260925)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--no-semantic", action="store_true")
+    ap.add_argument("--out", default=None, help="output directory (default outputs/evaluation, "
+                                                 "or outputs/evaluation/quick with --quick)")
     args = ap.parse_args()
+    global OUT
     if args.quick:
         args.patients, args.sessions = 4, 3
+        OUT = OUT / "quick"          # never overwrite the recorded full-run results (git-ignored)
+    if args.out:
+        OUT = pathlib.Path(args.out)
 
     started = time.time()
     commit = git_sha()   # before any output is written, so the run's own files don't mark it dirty
